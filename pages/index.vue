@@ -90,11 +90,16 @@ const toggleFlight = () => {
 const reset = () => {
   isFlying.value = false;
   if (!ctx.value) return;
+  
+  position.value = { x: center.value.x, y: center.value.y };
+
+  path.length = 0;
+  path.push({ ...position.value });
+
   ctx.value.setTransform(1, 0, 0, 1, 0, 0);
   ctx.value.clearRect(0, 0, canvasWidth.value, canvasHeight.value);
   drawDrone();
 };
-
 const drawDrone = (angle = 0) => {
   const context = ctx.value;
   if (!context || !droneImage.value || !droneImage.value.complete) return;
