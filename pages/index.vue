@@ -12,6 +12,18 @@
             class="border w-full h-full"
           />
         </div>
+        <p class="absolute top-[20px] left-1/2 transform -translate-x-1/2 z-20">N 360°</p>
+        <p class="absolute left-[20px] top-1/2 transform -translate-y-1/2 z-20">
+          <span class="inline-block transform rotate-270">
+            W 270°
+          </span>
+        </p>
+        <p class="absolute bottom-[20px] left-1/2 transform -translate-x-1/2 z-20">N 360°</p>
+        <p class="absolute right-[20px] top-1/2 transform -translate-y-1/2 z-20">
+          <span class="inline-block transform rotate-90">
+            E 90°
+          </span>
+        </p>
       </CardContent>
       <CardFooter>
         <Button @click="toggleFlight">
@@ -38,7 +50,7 @@ const canvas = ref<HTMLCanvasElement | null>(null);
 const canvasContainer = ref<HTMLElement | null>(null);
 const ctx = ref<CanvasRenderingContext2D | null>(null);
 
-// Используем реактивные переменные для размеров канваса
+
 const canvasWidth = ref(600);
 const canvasHeight = ref(600);
 
@@ -51,10 +63,9 @@ const path: { x: number; y: number }[] = [];
 const totalTime = 20000; // 20 сек
 const stepTime = totalTime / (flightData.length - 1);
 
-// Use shallowRef for the image to prevent unnecessary reactivity
+
 const droneImage = shallowRef<HTMLImageElement | null>(null);
 
-// Центральная точка канваса
 const center = computed(() => ({
   x: canvasWidth.value / 2,
   y: canvasHeight.value / 2
@@ -68,7 +79,7 @@ const toggleFlight = () => {
     isFlying.value = true;
     currentIndex = 0;
     path.length = 0;
-    position.value = { x: center.value.x, y: center.value.y }; // Reset to middle
+    position.value = { x: center.value.x, y: center.value.y }; 
     if (path.length === 0) {
       path.push({ ...position.value });
     }
@@ -90,13 +101,12 @@ const drawDrone = (angle = 0) => {
 
   context.save();
 
-  // Центруємо камеру по дрону
-  context.setTransform(1, 0, 0, 1, 0, 0); // скидаємо трансформацію
+
+  context.setTransform(1, 0, 0, 1, 0, 0);
   const camX = position.value.x - canvasWidth.value / 2;
   const camY = position.value.y - canvasHeight.value / 2;
   context.translate(-camX, -camY);
 
-  // Малюємо шлях
   if (path.length > 1) {
     context.strokeStyle = "lime";
     context.lineWidth = 2;
@@ -108,7 +118,7 @@ const drawDrone = (angle = 0) => {
     context.stroke();
   }
 
-  // Малюємо дрон
+
   context.translate(position.value.x, position.value.y);
   context.rotate((angle * Math.PI) / 180);
   context.drawImage(droneImage.value, -15, -15, 30, 30);
@@ -154,19 +164,18 @@ const animate = () => {
   step();
 };
 
-// Функция для обновления размеров канваса
+
 const resizeCanvas = () => {
   if (!canvasContainer.value || !canvas.value) return;
   
   const containerWidth = canvasContainer.value.clientWidth;
   canvasWidth.value = containerWidth;
-  canvasHeight.value = containerWidth; // Для поддержания соотношения 1:1 (aspect-square)
+  canvasHeight.value = containerWidth; 
   
-  // Обновляем атрибуты width и height в canvas элементе
+
   canvas.value.width = canvasWidth.value;
   canvas.value.height = canvasHeight.value;
   
-  // Перерисовываем все после изменения размера
   if (isFlying.value) {
     drawDrone();
   } else {
@@ -178,25 +187,22 @@ onMounted(() => {
   if (canvas.value) {
     ctx.value = canvas.value.getContext("2d");
 
-    // Получаем начальные размеры и устанавливаем canvas
     resizeCanvas();
 
-    // Создаем обработчик события изменения размера окна
     window.addEventListener('resize', resizeCanvas);
 
-    // Create the Image only on client-side
     if (typeof window !== "undefined") {
       droneImage.value = new Image();
-      droneImage.value.src = "/drone.svg"; // Ensure this path is correct
+      droneImage.value.src = "/drone.svg"; 
       droneImage.value.onload = () => {
-        position.value = { x: center.value.x, y: center.value.y }; // Initialize position at center
+        position.value = { x: center.value.x, y: center.value.y }; 
         drawDrone();
       };
     }
   }
 });
 
-// Очистка обработчика при размонтировании компонента
+
 onBeforeUnmount(() => {
   window.removeEventListener('resize', resizeCanvas);
   if (animationFrameId) {
