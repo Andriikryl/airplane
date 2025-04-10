@@ -5,21 +5,21 @@
         <CardTitle>Тестове завдання</CardTitle>
         <CardDescription>Тестове завдання полягає у створенні невеликого віджету (сторінки), який переглядає історію польоту умовного БПЛА.</CardDescription>
       </CardHeader>
-      <CardContent class="relative max-w-[600px]">
+      <CardContent class="relative max-w-[600px] card-content">
         <div ref="canvasContainer" class="w-full aspect-square">
           <canvas
             ref="canvas"
-            class="border w-full h-full"
+            class="w-full h-full"
           />
         </div>
-        <p class="absolute top-[20px] left-1/2 transform -translate-x-1/2 z-20">N 360°</p>
+        <p class="absolute top-[20px] text-white left-1/2 transform -translate-x-1/2 z-20">N 360°</p>
         <p class="absolute left-[20px] top-1/2 transform -translate-y-1/2 z-20">
-          <span class="inline-block transform rotate-270">
+          <span class="inline-block text-white transform rotate-270">
             W 270°
           </span>
         </p>
-        <p class="absolute bottom-[20px] left-1/2 transform -translate-x-1/2 z-20">N 360°</p>
-        <p class="absolute right-[20px] top-1/2 transform -translate-y-1/2 z-20">
+        <p class="absolute bottom-[20px] text-white left-1/2 transform -translate-x-1/2 z-20">S 180°</p>
+        <p class="absolute right-[20px] text-white top-1/2 transform -translate-y-1/2 z-20">
           <span class="inline-block transform rotate-90">
             E 90°
           </span>
@@ -50,7 +50,6 @@ const canvas = ref<HTMLCanvasElement | null>(null);
 const canvasContainer = ref<HTMLElement | null>(null);
 const ctx = ref<CanvasRenderingContext2D | null>(null);
 
-
 const canvasWidth = ref(600);
 const canvasHeight = ref(600);
 
@@ -60,9 +59,12 @@ let currentIndex = 0;
 const position = ref({ x: 0, y: 0 });
 const path: { x: number; y: number }[] = [];
 
+const cameraOffset = ref({ x: 0, y: 0 });
+
+const currentDirection = ref(0);
+
 const totalTime = 20000; // 20 сек
 const stepTime = totalTime / (flightData.length - 1);
-
 
 const droneImage = shallowRef<HTMLImageElement | null>(null);
 
@@ -70,6 +72,8 @@ const center = computed(() => ({
   x: canvasWidth.value / 2,
   y: canvasHeight.value / 2
 }));
+
+const maxDistanceFromCenter = computed(() => Math.min(canvasWidth.value, canvasHeight.value) * 0.4);
 
 const toggleFlight = () => {
   if (isFlying.value) {
@@ -80,6 +84,8 @@ const toggleFlight = () => {
     currentIndex = 0;
     path.length = 0;
     position.value = { x: center.value.x, y: center.value.y }; 
+    cameraOffset.value = { x: 0, y: 0 };
+    currentDirection.value = 0;
     if (path.length === 0) {
       path.push({ ...position.value });
     }
@@ -92,40 +98,72 @@ const reset = () => {
   if (!ctx.value) return;
   
   position.value = { x: center.value.x, y: center.value.y };
+  cameraOffset.value = { x: 0, y: 0 };
+  currentDirection.value = 0;
 
   path.length = 0;
   path.push({ ...position.value });
 
-  ctx.value.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.value.clearRect(0, 0, canvasWidth.value, canvasHeight.value);
-  drawDrone();
+  drawScene();
 };
+
+const updateCamera = () => {
+  const droneScreenX = position.value.x - cameraOffset.value.x;
+  const droneScreenY = position.value.y - cameraOffset.value.y;
+  
+  const distanceFromCenterX = droneScreenX - center.value.x;
+  const distanceFromCenterY = droneScreenY - center.value.y;
+  
+  if (Math.abs(distanceFromCenterX) > maxDistanceFromCenter.value) {
+    const adjustment = distanceFromCenterX > 0 ? 
+      distanceFromCenterX - maxDistanceFromCenter.value : 
+      distanceFromCenterX + maxDistanceFromCenter.value;
+    cameraOffset.value.x += adjustment;
+  }
+  
+  if (Math.abs(distanceFromCenterY) > maxDistanceFromCenter.value) {
+    const adjustment = distanceFromCenterY > 0 ? 
+      distanceFromCenterY - maxDistanceFromCenter.value : 
+      distanceFromCenterY + maxDistanceFromCenter.value;
+    cameraOffset.value.y += adjustment;
+  }
+};
+
+const drawScene = () => {
+  if (!ctx.value) return;
+
+  ctx.value.clearRect(0, 0, canvasWidth.value, canvasHeight.value);  
+
+  ctx.value.save();
+
+  ctx.value.translate(-cameraOffset.value.x, -cameraOffset.value.y);
+  
+  if (path.length > 1) {
+    ctx.value.strokeStyle = "lime";
+    ctx.value.lineWidth = 2;
+    ctx.value.beginPath();
+    ctx.value.moveTo(path[0].x, path[0].y);
+    for (let i = 1; i < path.length; i++) {
+      ctx.value.lineTo(path[i].x, path[i].y);
+    }
+    ctx.value.stroke();
+  }
+  
+  drawDrone(currentDirection.value);
+  
+  ctx.value.restore();
+};
+
 const drawDrone = (angle = 0) => {
   const context = ctx.value;
   if (!context || !droneImage.value || !droneImage.value.complete) return;
 
   context.save();
-
-
-  context.setTransform(1, 0, 0, 1, 0, 0);
-  const camX = position.value.x - canvasWidth.value / 2;
-  const camY = position.value.y - canvasHeight.value / 2;
-  context.translate(-camX, -camY);
-
-  if (path.length > 1) {
-    context.strokeStyle = "lime";
-    context.lineWidth = 2;
-    context.beginPath();
-    context.moveTo(path[0].x, path[0].y);
-    for (let i = 1; i < path.length; i++) {
-      context.lineTo(path[i].x, path[i].y);
-    }
-    context.stroke();
-  }
-
-
   context.translate(position.value.x, position.value.y);
-  context.rotate((angle * Math.PI) / 180);
+  
+
+  context.rotate(((angle) * Math.PI) / 90);
+  
   context.drawImage(droneImage.value, -15, -15, 30, 30);
   context.restore();
 };
@@ -143,6 +181,9 @@ const animate = () => {
   let frame = 0;
 
   const direction = parseFloat(to.direction);
+
+  currentDirection.value = direction;
+  
   const speed = parseFloat(to.speed);
   const radians = (direction * Math.PI) / 180;
   const distance = speed / 10;
@@ -155,10 +196,11 @@ const animate = () => {
       position.value.x += dx;
       position.value.y += dy;
       path.push({ x: position.value.x, y: position.value.y });
-      if (ctx.value) {
-        ctx.value.clearRect(0, 0, canvasWidth.value, canvasHeight.value);
-      }
-      drawDrone(direction);
+      
+      updateCamera();
+      
+      drawScene();
+      
       frame++;
       animationFrameId = requestAnimationFrame(step);
     } else {
@@ -169,7 +211,6 @@ const animate = () => {
   step();
 };
 
-
 const resizeCanvas = () => {
   if (!canvasContainer.value || !canvas.value) return;
   
@@ -177,12 +218,11 @@ const resizeCanvas = () => {
   canvasWidth.value = containerWidth;
   canvasHeight.value = containerWidth; 
   
-
   canvas.value.width = canvasWidth.value;
   canvas.value.height = canvasHeight.value;
   
   if (isFlying.value) {
-    drawDrone();
+    drawScene();
   } else {
     reset();
   }
@@ -201,12 +241,11 @@ onMounted(() => {
       droneImage.value.src = "/drone.svg"; 
       droneImage.value.onload = () => {
         position.value = { x: center.value.x, y: center.value.y }; 
-        drawDrone();
+        drawScene();
       };
     }
   }
 });
-
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', resizeCanvas);
@@ -215,3 +254,10 @@ onBeforeUnmount(() => {
   }
 });
 </script>
+
+<style>
+.card-content{
+  background-color: aqua;
+  background-image: url("../public/bg.jpg");
+}
+</style>
